@@ -3,8 +3,7 @@
 Validate the judge on MRBench's own responses, then print kappa vs the human ratings:
 
     python -m eval.run_judge mrbench --split train --limit 50 --dry-run
-    python -m eval.run_judge mrbench --split train --limit 50      # group model via OpenRouter (default)
-    python -m eval.run_judge mrbench --split train --limit 50 --model <openrouter slug>   # another judge model
+    python -m eval.run_judge mrbench --split train --limit 50 --provider anthropic --model <model>
 
 Judge TutorState responses from a Track E results file, then print mean scores per condition:
 
@@ -27,7 +26,7 @@ from eval.kappa import agreement_table
 from eval.load import load_bridge_contexts, load_mrbench_contexts, load_mrbench_examples, load_results
 from eval.report import judge_summary
 
-PROVIDERS = ["openrouter", "anthropic", "openai"]  # openrouter = the group key and model (llm.get_llm)
+PROVIDERS = ["anthropic", "openai"]
 
 
 def build_llm(provider: str, model: str | None, effort: str, max_tokens: int):
@@ -76,7 +75,7 @@ def main() -> None:
     for p in (mrbench, results):
         p.add_argument("--limit", type=int, default=20, help="how many responses to judge (default 20)")
         p.add_argument("--seed", type=int, default=0)
-        p.add_argument("--provider", choices=PROVIDERS, default="openrouter")
+        p.add_argument("--provider", choices=PROVIDERS, default="anthropic")
         p.add_argument("--model", default=None, help="model name; omit to use Track E's default")
         p.add_argument("--effort", choices=["low", "medium", "high"], default="low")
         p.add_argument("--max-tokens", type=int, default=4000)
@@ -122,9 +121,6 @@ def main() -> None:
     else:
         new = run_judge_results(llm, items, contexts, out)
     print(f"judged {new} new responses")
-    usage = getattr(llm, "usage", None)
-    if usage:
-        print(f"LLM usage: {usage['calls']} calls, ${usage['cost_usd']:.4f}")
 
     judged = [r for r in read_jsonl(out) if r["prompt_version"] == version]
     if args.command == "mrbench":

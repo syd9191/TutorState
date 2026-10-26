@@ -2,14 +2,12 @@ import argparse
 from pathlib import Path
 
 from experiments.conditions import CONDITIONS
-from experiments.dataloader import load_cases
+from experiments.dataloader import load_bridge_cases
 from experiments.runner import run_experiment
-import llm as llm_config
-from llm import ClaudeLLM, GPTLLM, OpenRouterLLM
+from llm import ClaudeLLM, GPTLLM
 
 
 DEFAULT_MODELS = {
-    "openrouter": llm_config.MODEL,  # group standard; anthropic/openai are for local debugging only
     "anthropic": "claude-opus-5-5",
     "openai": "gpt-6-astra",
 }
@@ -24,10 +22,7 @@ def parse_args():
         "--data",
         type=Path,
         required=True,
-        help=(
-            "Path to a BRIDGE or MRBench split JSON file "
-            "(the format is detected automatically)."
-        ),
+        help="Path to the dataset split JSON file.",
     )
 
     parser.add_argument(
@@ -83,15 +78,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--include-solution",
-        action="store_true",
-        help=(
-            "MRBench only: give the tutor the reference solution as grounding "
-            "(same for every condition). Off by default."
-        ),
-    )
-
-    parser.add_argument(
         "--max-cases",
         type=int,
         default=None,
@@ -105,11 +91,10 @@ def parse_args():
     parser.add_argument(
         "--provider",
         choices=[
-            "openrouter",
             "anthropic",
             "openai",
         ],
-        default="openrouter",
+        default="anthropic",
     )
 
     parser.add_argument(
@@ -128,13 +113,13 @@ def parse_args():
             "medium",
             "high",
         ],
-        default=llm_config.EFFORT,
+        default="medium",
     )
 
     parser.add_argument(
         "--max-tokens",
         type=int,
-        default=llm_config.MAX_TOKENS,
+        default=16000,
     )
 
     parser.add_argument(
@@ -164,13 +149,6 @@ def build_llm(args):
         args.model
         or DEFAULT_MODELS[args.provider]
     )
-
-    if args.provider == "openrouter":
-        return OpenRouterLLM(
-            model=model,
-            effort=args.effort,
-            max_tokens=args.max_tokens,
-        )
 
     if args.provider == "anthropic":
         return ClaudeLLM(
@@ -208,9 +186,8 @@ def main():
     args = parse_args()
 
 
-    cases = load_cases(
-        args.data,
-        include_solution=args.include_solution,
+    cases = load_bridge_cases(
+        args.data
     )
 
     if args.max_cases is not None:
@@ -270,13 +247,6 @@ def main():
         memory_profile=args.memory_profile,
         max_turns=args.max_turns,
     )
-
-    usage = getattr(llm, "usage", None)
-    if usage:
-        print(
-            f"LLM usage: {usage['calls']} calls, {usage['prompt_tokens']} in / "
-            f"{usage['completion_tokens']} out tokens, ${usage['cost_usd']:.4f}"
-        )
 
 
 if __name__ == "__main__":

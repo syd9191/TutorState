@@ -1,6 +1,6 @@
 import copy
 
-from experiments.turn import build_prior_memory, run_turn
+from experiments.turn import run_turn
 
 
 def run_teacher_forced_case(
@@ -10,28 +10,18 @@ def run_teacher_forced_case(
     condition_name,
     memory_profile=None,
 ):
-    """Replay the dataset's history: earlier student turns build memory, the
-    final student turn goes through every component switched on."""
     history = copy.deepcopy(case["history"])
-
-    memory, trajectory = build_prior_memory(
-        llm=llm,
-        case=case,
-        history=history,
-        condition_name=condition_name,
-        memory_profile=memory_profile,
-    )
 
     result = run_turn(
         llm=llm,
         case=case,
         history=history,
         condition_name=condition_name,
-        previous_memory=memory,
+        previous_memory=None,
         memory_profile=memory_profile,
     )
 
-    trajectory.append(
+    trajectory = [
         {
             "step": 0,
             "history_before": history,
@@ -41,6 +31,6 @@ def run_teacher_forced_case(
             "response": result["response"],
             "timings": result["timings"],
         }
-    )
+    ]
 
     return result, trajectory
