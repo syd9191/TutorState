@@ -75,6 +75,19 @@ def failure_rate(results) -> dict[str, dict]:
     return report
 
 
+def bridge_history_ids(paths) -> set[str]:
+    """Every history_id in the given Bridge split files.
+
+    Used to score a subset, e.g. the Bridge-441 test histories that also appear
+    in the context-filtered Bridge-142 version (any of its splits).
+    """
+    return {
+        row["history_id"]
+        for path in paths
+        for row in json.loads(Path(path).read_text(encoding="utf-8"))
+    }
+
+
 def load_bridge_gold(path) -> dict[str, dict]:
     """{history_id: {"e": [...], "actions": [...], "expert_responses": [...]}}.
 

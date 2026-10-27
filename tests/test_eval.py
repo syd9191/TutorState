@@ -452,3 +452,11 @@ def test_build_acceptable_skips_a_case_it_cannot_parse(tmp_path):
     llm = ScriptedLLM(["bad", "still bad", acceptable_reply()])  # case 1 fails twice, case 2 succeeds
     assert build_acceptable(llm, cases, out) == 1
     assert list(load_acceptable(out)) == [cases[1]["case_id"]]
+
+
+def test_bridge_history_ids_gives_the_context_sufficient_subset_of_441_test():
+    from eval.load import bridge_history_ids
+    b142 = [ROOT / f"data/Bridge/bridge_data_size_142/142_{s}.json" for s in ("train", "validation", "test")]
+    t441 = bridge_history_ids([ROOT / "data/Bridge/bridge_data_size_441/441_test.json"])
+    assert len(t441) == 66
+    assert len(t441 & bridge_history_ids(b142)) == 28

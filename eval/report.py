@@ -317,7 +317,7 @@ def build_report(
 
 def main() -> None:
     from eval.acceptable import load_acceptable
-    from eval.load import load_bridge_gold, load_mrbench_contexts, load_results
+    from eval.load import bridge_history_ids, load_bridge_gold, load_mrbench_contexts, load_results
 
     parser = argparse.ArgumentParser(description="Track D evaluation report")
     parser.add_argument("--results", required=True)
@@ -325,6 +325,11 @@ def main() -> None:
     source.add_argument("--bridge", help="Bridge split file the results were run on")
     source.add_argument("--mrbench-split", choices=["train", "validation", "test"])
     parser.add_argument("--dataset", help="only use results rows with this dataset value, e.g. bridge142")
+    parser.add_argument(
+        "--only-in", nargs="+", metavar="BRIDGE_FILE",
+        help="score only histories that also appear in these Bridge files, e.g. all three "
+             "bridge_data_size_142 splits for the context-sufficient subset of Bridge-441 test",
+    )
     parser.add_argument("--acceptable", help="acceptable-action sets: eval.acceptable output (.jsonl) or a JSON dict")
     parser.add_argument("--judge", help="run_judge_results output (JSONL)")
     parser.add_argument("--order", help="comma-separated condition order, e.g. baseline,analyser,memory,full")
@@ -336,12 +341,20 @@ def main() -> None:
         results = [r for r in results if r.get("dataset") == args.dataset]
         if not results:
             raise SystemExit(f"no results rows with dataset={args.dataset!r}")
+    subset = bridge_history_ids(args.only_in) if args.only_in else None
+    if subset is not None:
+        results = [r for r in results if r["case_id"] in subset]
+        if not results:
+            raise SystemExit("no results rows are in the --only-in files")
+        print(f"subset: {len({r['case_id'] for r in results})} histories also in {', '.join(args.only_in)}")
     order = args.order.split(",") if args.order else list(dict.fromkeys(r["condition"] for r in results))
     acceptable = load_acceptable(args.acceptable) if args.acceptable else None
     judge_rows = None
     if args.judge:
         with open(args.judge, encoding="utf-8") as f:
             judge_rows = [json.loads(line) for line in f if line.strip()]
+        if subset is not None:
+            judge_rows = [r for r in judge_rows if r["case_id"] in subset]
 
     build_report(
         results,
