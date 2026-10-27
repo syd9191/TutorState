@@ -24,7 +24,9 @@ from pathlib import Path
 
 from eval.judge import build_user_prompt, prompt_version, run_judge, run_judge_results, system_prompt
 from eval.kappa import agreement_table
-from eval.load import load_bridge_contexts, load_mrbench_contexts, load_mrbench_examples, load_results
+from eval.load import (
+    bridge_history_ids, load_bridge_contexts, load_mrbench_contexts, load_mrbench_examples, load_results,
+)
 from eval.report import judge_summary
 
 PROVIDERS = ["openrouter", "anthropic", "openai"]  # openrouter = the group key and model (llm.get_llm)
@@ -73,6 +75,14 @@ def main() -> None:
     source = results.add_mutually_exclusive_group(required=True)
     source.add_argument("--bridge", help="Bridge split file the results were run on")
     source.add_argument("--mrbench-split", choices=["train", "validation", "test"])
+    results.add_argument(
+        "--only-in", nargs="+", metavar="BRIDGE_FILE",
+        help="judge only histories that also appear in these Bridge files (e.g. the three 142 splits)",
+    )
+    results.add_argument(
+        "--only-seed", type=int, default=None,
+        help="judge only replies from this run seed (e.g. 0), so a multi-seed run is not judged once per seed",
+    )
     for p in (mrbench, results):
         p.add_argument("--limit", type=int, default=20, help="how many responses to judge (default 20)")
         p.add_argument("--seed", type=int, default=0)
@@ -96,6 +106,11 @@ def main() -> None:
                                   items[0]["candidate_response"])
     else:
         rows = [r for r in load_results(args.results) if r.get("response")]
+        if args.only_in:
+            subset = bridge_history_ids(args.only_in)
+            rows = [r for r in rows if r["case_id"] in subset]
+        if args.only_seed is not None:
+            rows = [r for r in rows if r["seed"] == args.only_seed]
         contexts = load_bridge_contexts(args.bridge) if args.bridge else load_mrbench_contexts(args.mrbench_split)
         items = sample(rows, args.limit, args.seed)
         out = args.out or Path("results") / f"judge_{args.results.stem}_{model_tag}.jsonl"
